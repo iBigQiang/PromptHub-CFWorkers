@@ -14,9 +14,11 @@
     "build:cli": "pnpm --filter @prompthub/cli build",
     "pack:cli": "pnpm --dir apps/cli pack",
     "build:web": "pnpm --filter @prompthub/web build",
+    "build:web:cf": "pnpm --filter @prompthub/web build:client && pnpm --filter @prompthub/web-cloudflare typecheck",
     "dev": "pnpm --filter @prompthub/desktop dev",
     "dev:cli": "pnpm --filter @prompthub/cli dev",
     "dev:web": "pnpm --filter @prompthub/web dev",
+    "dev:web:cf": "pnpm --filter @prompthub/web-cloudflare dev",
     "electron:dev": "pnpm --filter @prompthub/desktop electron:dev",
     "electron:build": "pnpm --filter @prompthub/desktop electron:build",
     "electron:build:mac": "pnpm --filter @prompthub/desktop electron:build:mac",
@@ -40,6 +42,7 @@
     "test:web": "pnpm --filter @prompthub/web test",
     "start:web": "pnpm --filter @prompthub/web start",
     "verify:web": "pnpm lint:web && pnpm typecheck:web && pnpm test:web -- --run && pnpm build:web",
+    "deploy:web:cf": "pnpm --filter @prompthub/web build:client && pnpm --filter @prompthub/web-cloudflare deploy",
     "docker:web:build": "docker build -f apps/web/Dockerfile -t prompthub-web:local ."
   }
 }
