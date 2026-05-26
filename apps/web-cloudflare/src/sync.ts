@@ -7,7 +7,7 @@ interface SyncPutBody {
   payload?: SyncSnapshot;
 }
 
-function emptySnapshot(): SyncSnapshot {
+export function emptySnapshot(): SyncSnapshot {
   const now = new Date().toISOString();
   return {
     version: "web-cloudflare-backup-v1",
@@ -28,7 +28,7 @@ function emptySnapshot(): SyncSnapshot {
   };
 }
 
-function normalizeSnapshot(input: unknown): SyncSnapshot {
+export function normalizeSnapshot(input: unknown): SyncSnapshot {
   const value = input && typeof input === "object" ? input as Partial<SyncSnapshot> : {};
   return {
     version: typeof value.version === "string" ? value.version : "web-cloudflare-backup-v1",
@@ -66,13 +66,54 @@ async function getSnapshotRow(db: D1Database, userId: string): Promise<{ payload
     .first<{ payload_json: string; exported_at: string; settings_updated_at: string | null }>();
 }
 
+export async function loadSnapshot(db: D1Database, userId: string): Promise<SyncSnapshot> {
+  const row = await getSnapshotRow(db, userId);
+  if (!row) {
+    return emptySnapshot();
+  }
+  return normalizeSnapshot(JSON.parse(row.payload_json));
+}
+
+export async function saveSnapshot(db: D1Database, userId: string, snapshotInput: SyncSnapshot): Promise<{ prompts: number; folders: number; rules: number; skills: number }> {
+  const snapshot = normalizeSnapshot(snapshotInput);
+  const summary = counts(snapshot);
+  const updatedAt = Date.now();
+
+  await db
+    .prepare(
+      `INSERT INTO sync_snapshots (
+        user_id, payload_json, exported_at, settings_updated_at,
+        prompts_count, folders_count, rules_count, skills_count, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(user_id) DO UPDATE SET
+        payload_json = excluded.payload_json,
+        exported_at = excluded.exported_at,
+        settings_updated_at = excluded.settings_updated_at,
+        prompts_count = excluded.prompts_count,
+        folders_count = excluded.folders_count,
+        rules_count = excluded.rules_count,
+        skills_count = excluded.skills_count,
+        updated_at = excluded.updated_at`,
+    )
+    .bind(
+      userId,
+      JSON.stringify(snapshot),
+      snapshot.exportedAt,
+      snapshot.settingsUpdatedAt ?? null,
+      summary.prompts,
+      summary.folders,
+      summary.rules,
+      summary.skills,
+      updatedAt,
+    )
+    .run();
+
+  return summary;
+}
+
 export async function getSyncData(c: Context<{ Bindings: Env; Variables: { authUser: AuthUser } }>): Promise<Response> {
   const user = c.get("authUser");
-  const row = await getSnapshotRow(c.env.DB, user.userId);
-  if (!row) {
-    return success(c, emptySnapshot());
-  }
-  return success(c, normalizeSnapshot(JSON.parse(row.payload_json)));
+  return success(c, await loadSnapshot(c.env.DB, user.userId));
 }
 
 export async function getManifest(c: Context<{ Bindings: Env; Variables: { authUser: AuthUser } }>): Promise<Response> {
@@ -117,37 +158,7 @@ export async function putSyncData(c: Context<{ Bindings: Env; Variables: { authU
   }
 
   const snapshot = normalizeSnapshot(body.payload);
-  const summary = counts(snapshot);
-  const updatedAt = Date.now();
-
-  await c.env.DB
-    .prepare(
-      `INSERT INTO sync_snapshots (
-        user_id, payload_json, exported_at, settings_updated_at,
-        prompts_count, folders_count, rules_count, skills_count, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(user_id) DO UPDATE SET
-        payload_json = excluded.payload_json,
-        exported_at = excluded.exported_at,
-        settings_updated_at = excluded.settings_updated_at,
-        prompts_count = excluded.prompts_count,
-        folders_count = excluded.folders_count,
-        rules_count = excluded.rules_count,
-        skills_count = excluded.skills_count,
-        updated_at = excluded.updated_at`,
-    )
-    .bind(
-      user.userId,
-      JSON.stringify(snapshot),
-      snapshot.exportedAt,
-      snapshot.settingsUpdatedAt ?? null,
-      summary.prompts,
-      summary.folders,
-      summary.rules,
-      summary.skills,
-      updatedAt,
-    )
-    .run();
+  const summary = await saveSnapshot(c.env.DB, user.userId, snapshot);
 
   return success(c, {
     ok: true,

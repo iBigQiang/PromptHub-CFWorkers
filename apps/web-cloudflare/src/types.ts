@@ -17,7 +17,9 @@ export interface AuthUser {
 
 export interface LoginResult {
   accessToken: string;
+  refreshToken: string;
   accessTokenExpiresIn: number;
+  refreshTokenExpiresIn: number;
   user: {
     id: string;
     username: string;

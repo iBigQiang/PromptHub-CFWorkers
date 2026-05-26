@@ -1,10 +1,13 @@
 import bcrypt from "bcryptjs";
 import { SignJWT, jwtVerify } from "jose";
 import type { Context, MiddlewareHandler } from "hono";
+import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { ErrorCode, failure, readJson, success } from "./response";
 import type { AuthUser, Env, LoginResult } from "./types";
 
 const CAPTCHA_TTL_SECONDS = 5 * 60;
+const ACCESS_COOKIE_NAME = "prompthub_access";
+const REFRESH_COOKIE_NAME = "prompthub_refresh";
 
 interface RegisterBody {
   username?: string;
@@ -18,6 +21,10 @@ interface LoginBody {
   password?: string;
   captchaId?: string;
   captchaAnswer?: string;
+}
+
+interface RefreshBody {
+  refreshToken?: string;
 }
 
 function nowSeconds(): number {
@@ -44,6 +51,36 @@ function accessTokenTtl(env: Env): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 86400;
 }
 
+function refreshTokenTtl(): number {
+  return 30 * 24 * 60 * 60;
+}
+
+function getCookieOptions(c: Context<{ Bindings: Env }>, maxAge: number) {
+  const requestUrl = new URL(c.req.url);
+  return {
+    httpOnly: true,
+    sameSite: "Lax" as const,
+    secure: requestUrl.protocol === "https:",
+    path: "/",
+    maxAge,
+  };
+}
+
+function setAuthCookies(c: Context<{ Bindings: Env }>, result: LoginResult): void {
+  setCookie(c, ACCESS_COOKIE_NAME, result.accessToken, getCookieOptions(c, result.accessTokenExpiresIn));
+  setCookie(c, REFRESH_COOKIE_NAME, result.refreshToken, getCookieOptions(c, result.refreshTokenExpiresIn));
+}
+
+function clearAuthCookies(c: Context): void {
+  deleteCookie(c, ACCESS_COOKIE_NAME, { path: "/" });
+  deleteCookie(c, REFRESH_COOKIE_NAME, { path: "/" });
+}
+
+function getBearerToken(c: Context): string {
+  const header = c.req.header("Authorization");
+  return header?.startsWith("Bearer ") ? header.slice("Bearer ".length).trim() : "";
+}
+
 function normalizeUsername(username: unknown): string {
   if (typeof username !== "string" || !username.trim()) {
     throw new Error("username is required");
@@ -67,28 +104,44 @@ async function countUsers(db: D1Database): Promise<number> {
   return row?.count ?? 0;
 }
 
-async function signAccessToken(env: Env, user: AuthUser): Promise<LoginResult> {
-  const ttl = accessTokenTtl(env);
+async function signJwt(env: Env, user: AuthUser, ttl: number, tokenType: "access" | "refresh"): Promise<string> {
   const expiresAt = nowSeconds() + ttl;
-  const accessToken = await new SignJWT({
+  return await new SignJWT({
     username: user.username,
     role: user.role,
+    tokenType,
   })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(user.userId)
     .setIssuedAt()
     .setExpirationTime(expiresAt)
     .sign(getJwtSecret(env));
+}
+
+async function signSession(env: Env, user: AuthUser): Promise<LoginResult> {
+  const accessTtl = accessTokenTtl(env);
+  const refreshTtl = refreshTokenTtl();
 
   return {
-    accessToken,
-    accessTokenExpiresIn: ttl,
+    accessToken: await signJwt(env, user, accessTtl, "access"),
+    refreshToken: await signJwt(env, user, refreshTtl, "refresh"),
+    accessTokenExpiresIn: accessTtl,
+    refreshTokenExpiresIn: refreshTtl,
     user: {
       id: user.userId,
       username: user.username,
       role: user.role,
     },
   };
+}
+
+function buildCaptchaSvg(answer: string): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="220" height="72" viewBox="0 0 220 72" role="img" aria-label="captcha">
+  <rect width="220" height="72" rx="14" fill="#eef6ff"/>
+  <path d="M18 55 C54 20, 92 68, 134 28 S190 14, 206 46" fill="none" stroke="#8dbdff" stroke-width="3" opacity=".7"/>
+  <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="700" letter-spacing="6" fill="#1f3763">${answer}</text>
+</svg>`;
+  return `data:image/svg+xml;base64,${btoa(svg)}`;
 }
 
 async function verifyCaptcha(c: Context<{ Bindings: Env }>, captchaId: unknown, captchaAnswer: unknown): Promise<void> {
@@ -131,6 +184,7 @@ export async function issueCaptcha(c: Context<{ Bindings: Env }>): Promise<Respo
   return success(c, {
     captchaId: id,
     prompt: `${left} ${operator} ${right} = ?`,
+    imageData: buildCaptchaSvg(answer),
     expiresInSeconds: CAPTCHA_TTL_SECONDS,
   });
 }
@@ -138,6 +192,7 @@ export async function issueCaptcha(c: Context<{ Bindings: Env }>): Promise<Respo
 export async function bootstrapStatus(c: Context<{ Bindings: Env }>): Promise<Response> {
   const users = await countUsers(c.env.DB);
   return success(c, {
+    initialized: users > 0,
     needsSetup: users === 0,
     registrationAllowed: users === 0 || c.env.ALLOW_REGISTRATION === "true",
   });
@@ -168,7 +223,9 @@ export async function register(c: Context<{ Bindings: Env }>): Promise<Response>
     return failure(c, 409, ErrorCode.CONFLICT, "Username already exists");
   }
 
-  return success(c, await signAccessToken(c.env, { userId: id, username, role }), 201);
+  const result = await signSession(c.env, { userId: id, username, role });
+  setAuthCookies(c, result);
+  return success(c, result, 201);
 }
 
 export async function login(c: Context<{ Bindings: Env }>): Promise<Response> {
@@ -186,12 +243,13 @@ export async function login(c: Context<{ Bindings: Env }>): Promise<Response> {
     return failure(c, 401, ErrorCode.UNAUTHORIZED, "Invalid username or password");
   }
 
-  return success(c, await signAccessToken(c.env, { userId: user.id, username: user.username, role: user.role }));
+  const result = await signSession(c.env, { userId: user.id, username: user.username, role: user.role });
+  setAuthCookies(c, result);
+  return success(c, result);
 }
 
 export const requireAuth: MiddlewareHandler<{ Bindings: Env; Variables: { authUser: AuthUser } }> = async (c, next) => {
-  const header = c.req.header("Authorization");
-  const token = header?.startsWith("Bearer ") ? header.slice("Bearer ".length).trim() : "";
+  const token = getBearerToken(c) || getCookie(c, ACCESS_COOKIE_NAME) || "";
   if (!token) {
     return failure(c, 401, ErrorCode.UNAUTHORIZED, "Missing or invalid Authorization header");
   }
@@ -199,7 +257,12 @@ export const requireAuth: MiddlewareHandler<{ Bindings: Env; Variables: { authUs
   try {
     const verified = await jwtVerify(token, getJwtSecret(c.env));
     const userId = verified.payload.sub;
-    if (!userId || typeof verified.payload.username !== "string" || (verified.payload.role !== "admin" && verified.payload.role !== "user")) {
+    if (
+      !userId ||
+      verified.payload.tokenType !== "access" ||
+      typeof verified.payload.username !== "string" ||
+      (verified.payload.role !== "admin" && verified.payload.role !== "user")
+    ) {
       return failure(c, 401, ErrorCode.UNAUTHORIZED, "Invalid access token");
     }
     c.set("authUser", {
@@ -213,3 +276,48 @@ export const requireAuth: MiddlewareHandler<{ Bindings: Env; Variables: { authUs
 
   await next();
 };
+
+export async function me(c: Context<{ Bindings: Env; Variables: { authUser: AuthUser } }>): Promise<Response> {
+  const user = c.get("authUser");
+  return success(c, {
+    id: user.userId,
+    username: user.username,
+    role: user.role,
+  });
+}
+
+export async function refresh(c: Context<{ Bindings: Env }>): Promise<Response> {
+  const body = await readJson<RefreshBody>(c);
+  const token = body.refreshToken || getBearerToken(c) || getCookie(c, REFRESH_COOKIE_NAME) || "";
+  if (!token) {
+    return failure(c, 401, ErrorCode.UNAUTHORIZED, "Missing refresh token");
+  }
+
+  try {
+    const verified = await jwtVerify(token, getJwtSecret(c.env));
+    const userId = verified.payload.sub;
+    if (
+      !userId ||
+      verified.payload.tokenType !== "refresh" ||
+      typeof verified.payload.username !== "string" ||
+      (verified.payload.role !== "admin" && verified.payload.role !== "user")
+    ) {
+      return failure(c, 401, ErrorCode.UNAUTHORIZED, "Invalid refresh token");
+    }
+
+    const result = await signSession(c.env, {
+      userId,
+      username: verified.payload.username,
+      role: verified.payload.role,
+    });
+    setAuthCookies(c, result);
+    return success(c, result);
+  } catch {
+    return failure(c, 401, ErrorCode.UNAUTHORIZED, "Invalid or expired refresh token");
+  }
+}
+
+export async function logout(c: Context): Promise<Response> {
+  clearAuthCookies(c);
+  return success(c, { ok: true });
+}

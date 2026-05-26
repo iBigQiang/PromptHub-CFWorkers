@@ -43,6 +43,7 @@ function withAuthorization(
 
   return {
     ...init,
+    cache: init.cache ?? 'no-store',
     credentials: 'include',
     headers,
   };

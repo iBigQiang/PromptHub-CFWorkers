@@ -1,6 +1,6 @@
 param(
   [string]$BaseUrl = "https://prompthub-cfworkers.bigqiang.workers.dev",
-  [string]$Username = "admin"
+  [string]$Username = "qiang"
 )
 
 $ErrorActionPreference = "Stop"

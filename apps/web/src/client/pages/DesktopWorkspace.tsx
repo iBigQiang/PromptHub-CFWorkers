@@ -37,7 +37,7 @@ function detectClientPlatform(userAgent: string): string {
 }
 
 export function DesktopWorkspacePage() {
-  const { user, registrationAllowed, isInitialized, logout } = useAuth();
+  const { user, token, registrationAllowed, isInitialized, logout } = useAuth();
 
   useEffect(() => {
     installDesktopBridge();
@@ -55,6 +55,7 @@ export function DesktopWorkspacePage() {
         credentials: 'same-origin',
         headers: {
           'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           id: getOrCreateBrowserDeviceId(),
@@ -70,7 +71,7 @@ export function DesktopWorkspacePage() {
     void heartbeat().catch((error) => {
       console.warn('Failed to register browser device heartbeat:', error);
     });
-  }, [user?.username]);
+  }, [token, user?.username]);
 
   useEffect(() => {
     Reflect.set(window, '__PROMPTHUB_WEB_CONTEXT__', {
