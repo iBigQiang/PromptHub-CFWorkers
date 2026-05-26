@@ -10,6 +10,16 @@ import {
   getPrompt,
   getSettings,
   getSkill,
+  copyPrompt,
+  createFolder,
+  createPrompt,
+  createPromptVersion,
+  deleteFolder,
+  deletePromptTag,
+  deletePrompt,
+  deletePromptVersion,
+  deletePromptVersionById,
+  diffPromptVersions,
   listFolders,
   listPromptTags,
   listPromptVersions,
@@ -19,9 +29,19 @@ import {
   listSkills,
   putSettings,
   readRule,
+  renderPromptCopy,
+  renamePromptTag,
+  reorderFolders,
+  rollbackPromptVersion,
+  updateFolder,
+  updatePrompt,
 } from "./web-data";
 
 const app = new Hono<{ Bindings: Env; Variables: { authUser: AuthUser } }>();
+
+function notImplemented(message: string) {
+  return (c: Parameters<typeof failure>[0]) => failure(c, 501, ErrorCode.NOT_IMPLEMENTED, message);
+}
 
 app.use("*", cors({
   origin: "*",
@@ -51,22 +71,57 @@ app.put("/api/sync/data", putSyncData);
 app.use("/api/prompts/*", requireAuth);
 app.use("/api/prompts", requireAuth);
 app.get("/api/prompts/meta/tags", listPromptTags);
+app.post("/api/prompts/meta/tags/rename", renamePromptTag);
+app.post("/api/prompts/meta/tags/delete", deletePromptTag);
 app.get("/api/prompts/:id/versions", listPromptVersions);
+app.get("/api/prompts/:id/versions/diff", diffPromptVersions);
+app.post("/api/prompts/:id/versions", createPromptVersion);
+app.post("/api/prompts/:id/versions/:version/rollback", rollbackPromptVersion);
+app.delete("/api/prompts/:id/versions/:versionId", deletePromptVersion);
+app.post("/api/prompts/:id/render-copy", renderPromptCopy);
+app.post("/api/prompts/:id/copy", copyPrompt);
 app.get("/api/prompts/:id", getPrompt);
+app.put("/api/prompts/:id", updatePrompt);
+app.delete("/api/prompts/:id", deletePrompt);
 app.get("/api/prompts", listPrompts);
+app.post("/api/prompts", createPrompt);
+app.use("/api/prompt-versions/*", requireAuth);
+app.delete("/api/prompt-versions/:versionId", deletePromptVersionById);
 
 app.use("/api/folders/*", requireAuth);
 app.use("/api/folders", requireAuth);
+app.put("/api/folders/reorder", reorderFolders);
 app.get("/api/folders", listFolders);
+app.post("/api/folders", createFolder);
+app.put("/api/folders/:id", updateFolder);
+app.delete("/api/folders/:id", deleteFolder);
 
 app.use("/api/skills/*", requireAuth);
 app.use("/api/skills", requireAuth);
+app.post("/api/skills/safety-scan", notImplemented("Skill safety scan is local-client only in the Cloudflare worker"));
+app.post("/api/skills/fetch-remote", notImplemented("Remote skill import is not implemented in the Cloudflare worker"));
+app.put("/api/skills/:id/safety-report", notImplemented("Skill safety reports are local-client only in the Cloudflare worker"));
 app.get("/api/skills/:id/versions", listSkillVersions);
+app.post("/api/skills/:id/versions", notImplemented("Skill version writes are local-client only in the Cloudflare worker"));
+app.post("/api/skills/:id/versions/:version/rollback", notImplemented("Skill version rollback is local-client only in the Cloudflare worker"));
+app.delete("/api/skills/:id/versions/:versionId", notImplemented("Skill version deletion is local-client only in the Cloudflare worker"));
+app.post("/api/skills/:id/export", notImplemented("Skill export is local-client only in the Cloudflare worker"));
 app.get("/api/skills/:id", getSkill);
+app.post("/api/skills", notImplemented("Skill creation is local-client only in the Cloudflare worker"));
+app.put("/api/skills/:id", notImplemented("Skill updates are local-client only in the Cloudflare worker"));
+app.delete("/api/skills/:id", notImplemented("Skill deletion is local-client only in the Cloudflare worker"));
 app.get("/api/skills", listSkills);
+app.delete("/api/skills", notImplemented("Bulk skill deletion is local-client only in the Cloudflare worker"));
 
 app.use("/api/rules/*", requireAuth);
 app.use("/api/rules", requireAuth);
+app.post("/api/rules/scan", notImplemented("Rule scanning is local-client only in the Cloudflare worker"));
+app.post("/api/rules/rewrite", notImplemented("Rule rewrite is local-client only in the Cloudflare worker"));
+app.post("/api/rules/projects", notImplemented("Rule project registration is local-client only in the Cloudflare worker"));
+app.delete("/api/rules/projects/:id", notImplemented("Rule project removal is local-client only in the Cloudflare worker"));
+app.post("/api/rules/import-records", notImplemented("Rule import writes are local-client only in the Cloudflare worker"));
+app.delete("/api/rules/:id/versions/:versionId", notImplemented("Rule version deletion is local-client only in the Cloudflare worker"));
+app.put("/api/rules/:id", notImplemented("Rule file writes are local-client only in the Cloudflare worker"));
 app.get("/api/rules/:id", readRule);
 app.get("/api/rules", listRules);
 

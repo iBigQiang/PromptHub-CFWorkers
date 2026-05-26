@@ -264,7 +264,8 @@ export function installDesktopBridge(): void {
         if (typeof query.offset === 'number') params.set('offset', String(query.offset));
         return apiJson<Prompt[]>(`/api/prompts?${params.toString()}`);
       },
-      copy: (id: string) => apiJsonBody<Prompt>(`/api/prompts/${id}/copy`, 'POST'),
+      copy: (id: string, variables: Record<string, string>) =>
+        apiJsonBody<string>(`/api/prompts/${id}/render-copy`, 'POST', { variables }),
       insertDirect: async (_prompt: Prompt) => {},
       syncWorkspace: async () => {},
     },
