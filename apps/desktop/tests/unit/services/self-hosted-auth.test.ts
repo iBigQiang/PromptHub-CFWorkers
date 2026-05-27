@@ -55,6 +55,18 @@ function buildSvgCaptchaImageData(signatures: string[]): string {
   return `data:image/svg+xml;base64,${Buffer.from(svg, "utf8").toString("base64")}`;
 }
 
+function buildWorkerCaptchaImageData(signatures: string[], visibleText: string): string {
+  const paths = signatures
+    .map(
+      (signature, index) =>
+        `<path fill="#111" opacity="0" d="${signatureToPathData(signature, 10 + index * 120)}"></path>`,
+    )
+    .join("");
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80"><text x="160" y="42">${visibleText}</text><g aria-hidden="true">${paths}</g></svg>`;
+
+  return `data:image/svg+xml;base64,${Buffer.from(svg, "utf8").toString("base64")}`;
+}
+
 function jsonResponse(payload: unknown, init?: ResponseInit): Response {
   return new Response(JSON.stringify(payload), {
     status: 200,
@@ -119,6 +131,35 @@ describe("self-hosted-auth", () => {
     ).resolves.toEqual({
       captchaId: "660e8400-e29b-41d4-a716-446655440000",
       captchaAnswer: "be",
+    });
+  });
+
+  it("solves five-character alphanumeric worker captcha images", async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({
+        data: {
+          captchaId: "770e8400-e29b-41d4-a716-446655440000",
+          imageData: buildWorkerCaptchaImageData(
+            [
+              LOWERCASE_B_SIGNATURE,
+              DIGIT_4_SIGNATURE,
+              DIGIT_7_SIGNATURE,
+              LOWERCASE_E_SIGNATURE,
+              DIGIT_4_SIGNATURE,
+            ],
+            "B47E4",
+          ),
+        },
+      }),
+    );
+
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      issueSolvedPromptHubCaptcha("https://backup.example.com"),
+    ).resolves.toEqual({
+      captchaId: "770e8400-e29b-41d4-a716-446655440000",
+      captchaAnswer: "b47e4",
     });
   });
 });

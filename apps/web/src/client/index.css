@@ -182,6 +182,38 @@ select {
     linear-gradient(135deg, #f8fafc 0%, #f5f7fb 54%, #eef3fb 100%);
 }
 
+.web-login-page {
+  position: relative;
+  min-height: 100dvh;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72) 0%, rgba(246, 248, 252, 0.92) 48%, #edf1f7 100%),
+    radial-gradient(circle at 50% -12%, rgba(64, 86, 122, 0.18), transparent 34rem);
+}
+
+.web-login-page::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(15, 23, 42, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(15, 23, 42, 0.028) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: linear-gradient(to bottom, transparent 0%, black 18%, black 62%, transparent 100%);
+}
+
+.web-login-page::after {
+  content: "";
+  position: absolute;
+  inset: auto 16% 8% 16%;
+  height: 18rem;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.76), transparent);
+  filter: blur(42px);
+  opacity: 0.72;
+}
+
 .prompthub-web-auth .web-auth-card {
   max-width: 28rem;
   padding: 2.125rem;
@@ -192,11 +224,35 @@ select {
   backdrop-filter: blur(16px);
 }
 
+.web-login-page .web-auth-card {
+  position: relative;
+  z-index: 1;
+  max-width: 26.5rem;
+  padding: 2.25rem;
+  border-radius: 1.75rem;
+  border: 1px solid rgba(116, 129, 151, 0.18);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 253, 0.97));
+  box-shadow:
+    0 30px 70px rgba(24, 36, 58, 0.12),
+    0 1px 1px rgba(255, 255, 255, 0.95) inset,
+    0 0 0 8px rgba(255, 255, 255, 0.36);
+  backdrop-filter: none;
+}
+
 .web-auth-brand {
   display: flex;
   align-items: flex-start;
   gap: 0.75rem;
   margin-bottom: 1.75rem;
+}
+
+.web-login-page .web-auth-brand {
+  flex-direction: column;
+  align-items: center;
+  gap: 0.875rem;
+  margin-bottom: 2rem;
+  text-align: center;
 }
 
 .web-auth-brand-mark {
@@ -213,8 +269,25 @@ select {
   line-height: 1;
 }
 
+.web-login-page .web-auth-brand-mark {
+  width: 2.875rem;
+  height: 2.875rem;
+  border-radius: 1.05rem;
+  background:
+    linear-gradient(145deg, #111827 0%, #1f2937 54%, #314158 100%);
+  box-shadow:
+    0 18px 34px rgba(20, 30, 48, 0.20),
+    0 1px 0 rgba(255, 255, 255, 0.18) inset;
+  font-size: 0.95rem;
+  font-weight: 760;
+}
+
 .web-auth-brand-copy {
   min-width: 0;
+}
+
+.web-login-page .web-auth-brand-copy {
+  max-width: 20rem;
 }
 
 .prompthub-web-auth .web-auth-title {
@@ -227,12 +300,28 @@ select {
   letter-spacing: 0;
 }
 
+.web-login-page .web-auth-title {
+  text-align: center;
+  color: #111827;
+  font-size: 1.625rem;
+  font-weight: 760;
+  line-height: 1.16;
+}
+
 .prompthub-web-auth .web-auth-description {
   margin: 0.35rem 0 0;
   text-align: left;
   color: #667085;
   font-size: 0.82rem;
   line-height: 1.4;
+}
+
+.web-login-page .web-auth-description {
+  margin: 0.5rem 0 0;
+  text-align: center;
+  color: #687386;
+  font-size: 0.875rem;
+  line-height: 1.5;
 }
 
 .setup-card {
@@ -279,10 +368,23 @@ select {
   padding: 0.75rem 0.875rem;
 }
 
+.web-login-page .login-error {
+  margin-bottom: 1.125rem;
+  border: 1px solid rgba(185, 28, 28, 0.10);
+  border-radius: 1rem;
+  background: #fff5f5;
+  color: #991b1b;
+  font-size: 0.875rem;
+}
+
 .login-form {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.web-login-page .login-form {
+  gap: 1.125rem;
 }
 
 .form-group {
@@ -291,9 +393,19 @@ select {
   gap: 0.25rem;
 }
 
+.web-login-page .form-group {
+  gap: 0.5rem;
+}
+
 .form-group label {
   font-size: 0.875rem;
   font-weight: 600;
+}
+
+.web-login-page .form-group label {
+  color: #334155;
+  font-size: 0.8125rem;
+  font-weight: 680;
 }
 
 .form-group input,
@@ -313,11 +425,31 @@ select {
   box-shadow: inset 0 1px 1px rgba(15, 23, 42, 0.04);
 }
 
+.web-login-page .web-auth-input {
+  min-height: 3.125rem;
+  padding: 0.8125rem 0.9375rem;
+  border-color: #d7dee8;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.94);
+  color: #111827;
+  transition:
+    border-color 240ms cubic-bezier(0.32, 0.72, 0, 1),
+    box-shadow 240ms cubic-bezier(0.32, 0.72, 0, 1),
+    background 240ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
 .prompthub-web-auth .web-auth-input:focus {
   outline: none;
   border-color: #3b82f6;
   box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.14);
   background: #ffffff;
+}
+
+.web-login-page .web-auth-input:focus {
+  border-color: #5b6b82;
+  box-shadow:
+    0 0 0 4px rgba(71, 85, 105, 0.12),
+    inset 0 1px 1px rgba(15, 23, 42, 0.035);
 }
 
 .prompthub-web-auth .web-auth-submit {
@@ -338,12 +470,42 @@ select {
   -webkit-appearance: none !important;
 }
 
+.web-login-page .web-auth-submit {
+  margin-top: 0.375rem;
+  min-height: 3.25rem;
+  border-radius: 1rem;
+  background: linear-gradient(180deg, #1f2937 0%, #121826 100%) !important;
+  border: 1px solid rgba(17, 24, 39, 0.92) !important;
+  box-shadow:
+    0 18px 36px rgba(17, 24, 39, 0.20),
+    0 1px 0 rgba(255, 255, 255, 0.14) inset;
+  transition:
+    transform 220ms cubic-bezier(0.32, 0.72, 0, 1),
+    box-shadow 220ms cubic-bezier(0.32, 0.72, 0, 1),
+    background 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.web-login-page .web-auth-submit span {
+  color: #ffffff;
+}
+
 .prompthub-web-auth button.web-auth-submit:hover {
   background: #111827 !important;
 }
 
+.web-login-page button.web-auth-submit:hover {
+  background: linear-gradient(180deg, #263244 0%, #111827 100%) !important;
+  box-shadow:
+    0 22px 42px rgba(17, 24, 39, 0.24),
+    0 1px 0 rgba(255, 255, 255, 0.16) inset;
+}
+
 .prompthub-web-auth button.web-auth-submit:active {
   transform: translateY(1px);
+}
+
+.web-login-page button.web-auth-submit:active {
+  transform: translateY(1px) scale(0.99);
 }
 
 .prompthub-web-auth button.web-auth-submit:focus-visible {
@@ -351,6 +513,12 @@ select {
   box-shadow:
     0 0 0 4px rgba(23, 32, 51, 0.14),
     0 14px 30px rgba(23, 32, 51, 0.18) !important;
+}
+
+.web-login-page button.web-auth-submit:focus-visible {
+  box-shadow:
+    0 0 0 4px rgba(17, 24, 39, 0.14),
+    0 18px 36px rgba(17, 24, 39, 0.20) !important;
 }
 
 .login-submit,
@@ -398,6 +566,11 @@ button.primary-button {
   gap: 0.625rem;
 }
 
+.web-login-page .web-auth-captcha-row {
+  grid-template-columns: minmax(0, 1fr) minmax(7.5rem, auto);
+  gap: 0.625rem;
+}
+
 .web-auth-captcha-prompt {
   min-height: 4rem;
   display: flex;
@@ -415,6 +588,21 @@ button.primary-button {
   overflow: hidden;
 }
 
+.web-login-page .web-auth-captcha-prompt {
+  min-height: 3.5rem;
+  padding: 0.4375rem 0.75rem;
+  border-radius: 1rem;
+  border-color: #dbe3ee;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(246, 248, 251, 0.95));
+  color: #475569;
+  font-weight: 640;
+  letter-spacing: 0;
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.90),
+    0 1px 2px rgba(15, 23, 42, 0.035);
+}
+
 .web-auth-captcha-image {
   display: block;
   width: 100%;
@@ -422,6 +610,10 @@ button.primary-button {
   height: auto;
   max-height: 3.6rem;
   object-fit: contain;
+}
+
+.web-login-page .web-auth-captcha-image {
+  max-height: 3rem;
 }
 
 .web-auth-captcha-refresh {
@@ -434,17 +626,67 @@ button.primary-button {
   font-weight: 700;
 }
 
+.web-login-page .web-auth-captcha-refresh {
+  min-width: 7.5rem;
+  min-height: 3.5rem;
+  padding: 0.625rem 0.875rem;
+  border-radius: 1rem;
+  border-color: #dbe3ee;
+  background: rgba(255, 255, 255, 0.72);
+  color: #334155;
+  font-size: 0.8125rem;
+  font-weight: 680;
+  white-space: nowrap;
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.88),
+    0 1px 2px rgba(15, 23, 42, 0.035);
+  transition:
+    transform 220ms cubic-bezier(0.32, 0.72, 0, 1),
+    border-color 220ms cubic-bezier(0.32, 0.72, 0, 1),
+    background 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
 .web-auth-captcha-refresh:hover:not(:disabled) {
   border-color: #93b4ef;
   background: #eff6ff;
 }
 
+.web-login-page .web-auth-captcha-refresh:hover:not(:disabled) {
+  border-color: #b8c4d3;
+  background: #f8fafc;
+  transform: translateY(-1px);
+}
+
+.web-login-page .web-auth-captcha-refresh:active:not(:disabled) {
+  transform: translateY(0) scale(0.99);
+}
+
 @media (max-width: 640px) {
+  .web-login-page {
+    padding: 1rem;
+  }
+
+  .web-login-page .web-auth-card {
+    max-width: 100%;
+    padding: 1.5rem;
+    border-radius: 1.5rem;
+  }
+
   .web-auth-captcha-row {
     grid-template-columns: 1fr;
   }
 
   .web-auth-captcha-refresh {
+    width: 100%;
+  }
+}
+
+@media (max-width: 420px) {
+  .web-login-page .web-auth-captcha-row {
+    grid-template-columns: 1fr;
+  }
+
+  .web-login-page .web-auth-captcha-refresh {
     width: 100%;
   }
 }

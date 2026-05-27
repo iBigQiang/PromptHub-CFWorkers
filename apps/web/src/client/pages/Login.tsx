@@ -104,7 +104,7 @@ export function LoginPage() {
   };
 
   return (
-    <div className="login-container prompthub-web-auth">
+    <div className="login-container prompthub-web-auth web-login-page">
       <div className="login-card web-auth-card">
         <div className="web-auth-brand">
           <div className="web-auth-brand-mark" aria-hidden="true">P</div>
@@ -189,7 +189,7 @@ export function LoginPage() {
           </div>
 
           <button type="submit" className="login-submit web-auth-submit" disabled={captchaLoading}>
-            <span className="text-white">{t('auth.signIn')}</span>
+            <span>{t('auth.signIn')}</span>
           </button>
         </form>
       </div>
