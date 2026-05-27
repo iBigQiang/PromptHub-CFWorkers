@@ -259,6 +259,37 @@ docker compose up -d --build
 
 更详细的 Docker / NAS / VPS 自部署说明在 [`docs/web-self-hosted.md`](./docs/web-self-hosted.md)，Cloudflare Workers + D1 + R2 部署说明在 [`docs/cloudflare-workers.md`](./docs/cloudflare-workers.md)。
 
+#### 个人部署分支与上游贡献分支
+
+本 fork 长期保留两个 Cloudflare 相关分支：
+
+- `cf-workers-selfhost-sync`：个人部署和继续迭代分支，保留真实 Cloudflare 配置。GitHub 顶部如果提示这个分支有 recent pushes，不要直接点它创建上游 PR。
+- `cloudflare-workers-upstream-contribution`：专门用于给上游开 PR 的脱敏模板分支，只保留公开占位配置和通用文档。
+
+以后每次大版本迭代完个人部署分支后，先看同步计划：
+
+```powershell
+.\apps\web-cloudflare\scripts\prepare-upstream-contribution.ps1
+```
+
+确认计划没问题后，同步生成干净贡献分支：
+
+```powershell
+.\apps\web-cloudflare\scripts\prepare-upstream-contribution.ps1 -Apply
+```
+
+确认并推送贡献分支：
+
+```powershell
+.\apps\web-cloudflare\scripts\prepare-upstream-contribution.ps1 -Apply -Push
+```
+
+脚本会运行 `@prompthub/web-cloudflare` typecheck，并扫描个人域名、真实 Worker URL、D1 ID、账号 ID、本机路径等敏感信息。需要创建上游 PR 时，使用贡献分支：
+
+```powershell
+gh pr create --repo legeling/PromptHub --base main --head iBigQiang:cloudflare-workers-upstream-contribution --title "Add Cloudflare Workers self-hosted backend" --body-file docs/cloudflare-workers.md --draft
+```
+
 <div id="cli"></div>
 
 ## 命令行 CLI
