@@ -615,4 +615,84 @@ describe("Sidebar", () => {
     expect(usePromptStore.getState().filterTags).toEqual(["alpha", "beta"]);
     expect(screen.getByRole("button", { name: /gamma/i })).toBeInTheDocument();
   });
+
+  it("orders prompt tag chips by prompt count and keeps catalog-only tags visible", async () => {
+    useUIStore.setState({
+      appModule: "prompt",
+      viewMode: "prompt",
+      isSidebarCollapsed: false,
+    });
+    usePromptStore.setState({
+      prompts: [
+        {
+          id: "prompt-hot-1",
+          title: "Hot One",
+          userPrompt: "Body",
+          tags: ["alpha", "zeta", "alpha"],
+          promptType: "text",
+          currentVersion: 1,
+          version: 1,
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+          isFavorite: false,
+          isPinned: false,
+          usageCount: 0,
+          variables: [],
+        },
+        {
+          id: "prompt-hot-2",
+          title: "Hot Two",
+          userPrompt: "Body",
+          tags: ["alpha"],
+          promptType: "text",
+          currentVersion: 1,
+          version: 1,
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+          isFavorite: false,
+          isPinned: false,
+          usageCount: 0,
+          variables: [],
+        },
+        {
+          id: "prompt-beta",
+          title: "Beta",
+          userPrompt: "Body",
+          tags: ["beta"],
+          promptType: "text",
+          currentVersion: 1,
+          version: 1,
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+          isFavorite: false,
+          isPinned: false,
+          usageCount: 0,
+          variables: [],
+        },
+      ],
+    } as Partial<ReturnType<typeof usePromptStore.getState>>);
+    useSettingsStore.setState({
+      promptTagCatalog: ["catalog"],
+    } as Partial<ReturnType<typeof useSettingsStore.getState>>);
+
+    await act(async () => {
+      await renderWithI18n(
+        <Sidebar currentPage="home" onNavigate={vi.fn()} />,
+        { language: "en" },
+      );
+    });
+
+    const tagButtons = ["alpha", "beta", "zeta", "catalog"].map((tag) =>
+      screen.getByRole("button", { name: new RegExp(tag, "i") }),
+    );
+
+    expect(tagButtons.map((button) => button.textContent?.trim())).toEqual([
+      "alpha2",
+      "beta1",
+      "zeta1",
+      "catalog",
+    ]);
+    expect(within(tagButtons[0]).getByText("2")).toBeInTheDocument();
+    expect(within(tagButtons[3]).queryByText("0")).not.toBeInTheDocument();
+  });
 });

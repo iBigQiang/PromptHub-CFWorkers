@@ -24,7 +24,6 @@ import { useRulesStore } from '../../stores/rules.store';
 import { PlatformIcon } from '../ui/PlatformIcon';
 import { useToast } from '../ui/Toast';
 import { TagManagerModal } from '../prompt/TagManagerModal';
-import { mergePromptTagCatalog } from '../prompt/prompt-modal-utils';
 import { getOrderedGlobalRuleFiles } from '../../services/rule-platform-order';
 import {
   DESKTOP_HOME_MODULES,
@@ -33,6 +32,7 @@ import {
 
 type PageType = 'home' | 'settings';
 type SidebarLayout = 'combined' | 'rail' | 'panel';
+const PROMPT_TAG_PREVIEW_LIMIT = 24;
 
 interface SidebarProps {
   currentPage: PageType;
@@ -123,8 +123,6 @@ export function Sidebar({ currentPage, onNavigate, layout = 'combined' }: Sideba
   const tagPopoverCloseTimerRef = useRef<number | null>(null);
 
   // Resize state
-  const tagsSectionHeight = useSettingsStore((state) => state.tagsSectionHeight);
-  const setTagsSectionHeight = useSettingsStore((state) => state.setTagsSectionHeight);
   const isTagsCollapsed = useSettingsStore((state) => state.isTagsSectionCollapsed);
   const setIsTagsCollapsed = useSettingsStore((state) => state.setIsTagsSectionCollapsed);
   const viewMode = useUIStore((state) => state.viewMode);
@@ -199,9 +197,37 @@ export function Sidebar({ currentPage, onNavigate, layout = 'combined' }: Sideba
     [skills, deployedSkillNames],
   );
   const favoriteCount = promptStats.favoriteCount;
+  const promptTagSummaries = useMemo(() => {
+    const tagCounts = new Map<string, number>();
+
+    for (const prompt of prompts) {
+      const promptTags = new Set(
+        prompt.tags.map((tag) => tag.trim()).filter(Boolean),
+      );
+
+      for (const tag of promptTags) {
+        tagCounts.set(tag, (tagCounts.get(tag) ?? 0) + 1);
+      }
+    }
+
+    for (const tag of promptTagCatalog) {
+      const normalizedTag = tag.trim();
+      if (normalizedTag) {
+        tagCounts.set(normalizedTag, tagCounts.get(normalizedTag) ?? 0);
+      }
+    }
+
+    return Array.from(tagCounts, ([tag, count]) => ({ tag, count })).sort(
+      (a, b) => b.count - a.count || a.tag.localeCompare(b.tag),
+    );
+  }, [promptTagCatalog, prompts]);
   const uniqueTags = useMemo(
-    () => mergePromptTagCatalog(prompts, promptTagCatalog),
-    [promptTagCatalog, prompts],
+    () => promptTagSummaries.map(({ tag }) => tag),
+    [promptTagSummaries],
+  );
+  const promptTagCountByName = useMemo(
+    () => new Map(promptTagSummaries.map(({ tag, count }) => [tag, count])),
+    [promptTagSummaries],
   );
   const uniqueSkillTags = skillStats.uniqueUserTags;
   const runtimeCapabilities = getRuntimeCapabilities();
@@ -589,15 +615,12 @@ export function Sidebar({ currentPage, onNavigate, layout = 'combined' }: Sideba
             }
           }, [moveFolder]);
 
-      // Resize handler (shared for prompt and skill tags sections)
-      const resizeTarget = useRef<'prompt' | 'skill'>('prompt');
-
-      const handleResizeStart = (e: React.MouseEvent, target: 'prompt' | 'skill' = 'prompt') => {
+      // Resize handler for the skill tags section.
+      const handleResizeStart = (e: React.MouseEvent) => {
         e.preventDefault();
         setIsResizing(true);
-        resizeTarget.current = target;
         dragStartY.current = e.clientY;
-        dragStartHeight.current = target === 'prompt' ? tagsSectionHeight : skillTagsSectionHeight;
+        dragStartHeight.current = skillTagsSectionHeight;
         document.body.style.cursor = 'ns-resize';
       };
     
@@ -610,11 +633,7 @@ export function Sidebar({ currentPage, onNavigate, layout = 'combined' }: Sideba
           const minHeight = 140;
           const maxHeight = window.innerHeight - 300;
           const clampedHeight = Math.max(minHeight, Math.min(maxHeight, newHeight));
-          if (resizeTarget.current === 'prompt') {
-            setTagsSectionHeight(clampedHeight);
-          } else {
-            setSkillTagsSectionHeight(clampedHeight);
-          }
+          setSkillTagsSectionHeight(clampedHeight);
         };
         const handleMouseUp = () => {
           setIsResizing(false);
@@ -628,7 +647,7 @@ export function Sidebar({ currentPage, onNavigate, layout = 'combined' }: Sideba
           window.removeEventListener('mousemove', handleMouseMove);
           window.removeEventListener('mouseup', handleMouseUp);
         };
-      }, [isResizing, setTagsSectionHeight, setSkillTagsSectionHeight]);
+      }, [isResizing, setSkillTagsSectionHeight]);
   return (
     <aside
       ref={sidebarRef}
@@ -800,10 +819,10 @@ export function Sidebar({ currentPage, onNavigate, layout = 'combined' }: Sideba
         </div>
       </div>
 
-      {/* Main body area - split into Folders (grow) and Tags (fixed/resizable bottom) */}
-      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-        {/* Folders Section - This takes all available space and scroll internally */}
-        <div className="flex-1 flex flex-col min-h-0 overflow-hidden mt-2">
+      {/* Main body area - folders and prompt tags flow together */}
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden scrollbar-hide">
+        {/* Folders Section */}
+        <div className="flex flex-col min-h-0 overflow-visible mt-2">
           {!isCollapsed && (
             <div className="flex items-center justify-between px-6 mb-2 shrink-0">
               <span className="text-xs font-semibold text-sidebar-foreground/50 uppercase tracking-wider truncate">
@@ -824,7 +843,7 @@ export function Sidebar({ currentPage, onNavigate, layout = 'combined' }: Sideba
             <div className="h-px app-wallpaper-panel-strong-border/50 my-2 mx-4 shrink-0" />
           )}
 
-          <div className="flex-1 overflow-y-auto overflow-x-hidden scrollbar-hide px-3 pb-4">
+          <div className="overflow-x-hidden px-3 pb-4">
             <SortableTree
               folders={folders}
               selectedFolderId={selectedFolderId}
@@ -856,19 +875,10 @@ export function Sidebar({ currentPage, onNavigate, layout = 'combined' }: Sideba
           </div>
         </div>
         
-        {/* Resize Handle - Visual divider */}
-        {uniqueTags.length > 0 && !isCollapsed && !isTagsCollapsed && (
-          <div 
-            className={`h-1 cursor-ns-resize hover:bg-primary/40 transition-colors z-30 shrink-0 mx-2 rounded-full ${isResizing ? 'bg-primary/60' : 'bg-transparent'}`}
-            onMouseDown={handleResizeStart}
-          />
-        )}
-
-        {/* Tags Section - Hard pinned to the bottom */}
+        {/* Tags Section */}
         {uniqueTags.length > 0 && (
           <div
-            className={`sidebar-tag-section shrink-0 flex flex-col overflow-hidden app-wallpaper-panel ${isCollapsed ? 'items-center' : ''}`}
-            style={{ height: isCollapsed || isTagsCollapsed ? 'auto' : `${tagsSectionHeight}px` }}
+            className={`sidebar-tag-section shrink-0 flex flex-col overflow-hidden app-wallpaper-panel ${isCollapsed ? 'items-center' : 'mt-5'}`}
           >
             {!isCollapsed && (
               <div className="flex items-center justify-between px-6 py-2 border-t border-sidebar-border/50 shrink-0">
@@ -889,7 +899,7 @@ export function Sidebar({ currentPage, onNavigate, layout = 'combined' }: Sideba
                     >
                       <SettingsIcon className="w-3.5 h-3.5" />
                     </button>
-                    {uniqueTags.length > 8 && (
+                    {uniqueTags.length > PROMPT_TAG_PREVIEW_LIMIT && (
                       <button
                         onClick={() => setShowAllTags(!showAllTags)}
                         className="text-xs text-primary hover:underline"
@@ -904,22 +914,35 @@ export function Sidebar({ currentPage, onNavigate, layout = 'combined' }: Sideba
 
             {!isCollapsed ? (
               !isTagsCollapsed && (
-                <div className="flex-1 overflow-y-auto px-6 pb-4 scrollbar-hide animate-in fade-in slide-in-from-bottom-2 duration-smooth">
+                <div
+                  className="overflow-y-auto px-6 pb-4 scrollbar-hide animate-in fade-in slide-in-from-bottom-2 duration-smooth"
+                  style={{ maxHeight: 'min(360px, calc(100vh - 420px))' }}
+                >
                   <div className="flex flex-wrap gap-1.5 pt-1">
-                    {(showAllTags ? uniqueTags : uniqueTags.slice(0, 8)).map((tag, index) => (
+                    {(showAllTags ? uniqueTags : uniqueTags.slice(0, PROMPT_TAG_PREVIEW_LIMIT)).map((tag, index) => (
                       <button
                         key={tag}
                         onClick={() => {
                           handlePromptTagClick(tag);
                         }}
                         style={{ animationDelay: `${index * 30}ms`, animationFillMode: 'both' }}
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors duration-base animate-in fade-in slide-in-from-left-1 ${filterTags.includes(tag) && currentPage === 'home'
+                        className={`group inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-colors duration-base animate-in fade-in slide-in-from-left-1 ${filterTags.includes(tag) && currentPage === 'home'
                           ? 'bg-primary text-white'
                           : 'bg-sidebar-accent text-sidebar-foreground/70 hover:bg-primary hover:text-white'
                           }`}
                       >
                         <HashIcon className="w-3 h-3" />
                         {tag}
+                        {(promptTagCountByName.get(tag) ?? 0) > 0 && (
+                          <span
+                            className={`ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] leading-none ${filterTags.includes(tag) && currentPage === 'home'
+                              ? 'bg-white/20 text-white/80'
+                              : 'bg-sidebar-background/70 text-sidebar-foreground/50 group-hover:bg-white/20 group-hover:text-white'
+                              }`}
+                          >
+                            {promptTagCountByName.get(tag)}
+                          </span>
+                        )}
                       </button>
                     ))}
                   </div>
@@ -1222,7 +1245,7 @@ export function Sidebar({ currentPage, onNavigate, layout = 'combined' }: Sideba
           </div>
         </div>
 
-        {/* Skill Tags Section - Mirrors prompt tags behavior (resize, collapse, popover) */}
+        {/* Skill Tags Section - Keeps the existing resize, collapse, and popover behavior. */}
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
           {/* Spacer to push tags to bottom */}
           <div className="flex-1" />
@@ -1231,7 +1254,7 @@ export function Sidebar({ currentPage, onNavigate, layout = 'combined' }: Sideba
           {storeView !== 'projects' && uniqueSkillTags.length > 0 && !isCollapsed && !isSkillTagsCollapsed && (
             <div 
               className={`h-1 cursor-ns-resize hover:bg-primary/40 transition-colors z-30 shrink-0 mx-2 rounded-full ${isResizing ? 'bg-primary/60' : 'bg-transparent'}`}
-              onMouseDown={(e) => handleResizeStart(e, 'skill')}
+              onMouseDown={handleResizeStart}
             />
           )}
 

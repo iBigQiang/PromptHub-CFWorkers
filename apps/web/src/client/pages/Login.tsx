@@ -105,13 +105,18 @@ export function LoginPage() {
 
   return (
     <div className="login-container prompthub-web-auth">
-      <div className="login-card rounded-[28px] border border-slate-200/80 bg-white/95 p-8 shadow-[0_32px_90px_rgba(15,23,42,0.10)] backdrop-blur">
-        <h2 className="login-title text-3xl font-semibold text-slate-900">
-          {t('auth.loginTitle')}
-        </h2>
-        <p className="setup-hint">
-          {t('auth.loginDescription')}
-        </p>
+      <div className="login-card web-auth-card">
+        <div className="web-auth-brand">
+          <div className="web-auth-brand-mark" aria-hidden="true">P</div>
+          <div className="web-auth-brand-copy">
+            <h1 className="login-title web-auth-title">
+              {t('auth.loginTitle')}
+            </h1>
+            <p className="setup-hint web-auth-description">
+              {t('auth.loginDescription')}
+            </p>
+          </div>
+        </div>
 
         {error && <div className="login-error">{error}</div>}
 
